@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -31,10 +31,10 @@ jobs:
 
       - name: Build
         env:
-          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4G"
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4G -Dorg.gradle.java.installations.auto-download=false"
         run: |
           chmod +x gradlew
-          ./gradlew build --no-daemon --stacktrace
+          timeout 20m ./gradlew build --no-daemon --stacktrace --info
 
       - name: Upload mod jar
         if: success()
