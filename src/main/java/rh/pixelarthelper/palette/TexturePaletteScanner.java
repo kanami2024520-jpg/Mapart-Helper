@@ -53,11 +53,14 @@ public final class TexturePaletteScanner {
 
             for (int meta = 0; meta < 16; meta++) {
                 IIcon icon = null;
+                IIcon fallback = null;
                 int face = 3;
                 for (int candidateFace : FACE_ORDER) {
                     try {
                         IIcon candidate = block.getIcon(candidateFace, meta);
-                        if (candidate != null) {
+                        if (candidate == null) continue;
+                        if (fallback == null) fallback = candidate;
+                        if (candidate instanceof TextureAtlasSprite) {
                             icon = candidate;
                             face = candidateFace;
                             break;
@@ -66,8 +69,22 @@ public final class TexturePaletteScanner {
                         // Some GTNH blocks only support specific metadata/faces.
                     }
                 }
-                if (!(icon instanceof TextureAtlasSprite)) {
+                if (icon == null) icon = fallback;
+                if (icon == null) {
+                    cache.skippedNoIcon++;
                     cache.variantsSkipped++;
+                    continue;
+                }
+                if (!(icon instanceof TextureAtlasSprite)) {
+                    cache.skippedNotSprite++;
+                    cache.variantsSkipped++;
+                    if (meta == 0 && blockName.startsWith("minecraft:") && cache.skippedNotSprite <= 12) {
+                        PixelArtHelper.LOG.info(
+                            "Palette skip {} meta 0: icon class {}",
+                            blockName,
+                            icon.getClass()
+                                .getName());
+                    }
                     continue;
                 }
 
@@ -81,16 +98,31 @@ public final class TexturePaletteScanner {
                 }
 
                 TextureAtlasSprite sprite = (TextureAtlasSprite) icon;
-                int[][] frames;
+                boolean diag = meta == 0 && (blockName.equals("minecraft:stone") || blockName.equals("minecraft:wool")
+                    || blockName.equals("minecraft:planks")
+                    || blockName.equals("minecraft:stained_hardened_clay"));
+                int[][] frames = null;
                 int[] pixels;
                 try {
                     frames = sprite.getFrameTextureData(0);
+                    if (diag) {
+                        PixelArtHelper.LOG.info(
+                            "Palette diag {}: sprite={} frames={} width={} height={}",
+                            blockName,
+                            sprite.getClass()
+                                .getName(),
+                            frames == null ? -1 : frames.length,
+                            sprite.getIconWidth(),
+                            sprite.getIconHeight());
+                    }
                     if (frames == null || frames.length == 0 || frames[0] == null) {
+                        cache.skippedNoFrames++;
                         cache.variantsSkipped++;
                         continue;
                     }
                     pixels = frames[0];
                 } catch (Throwable t) {
+                    cache.skippedNoFrames++;
                     cache.variantsSkipped++;
                     continue;
                 }
@@ -98,6 +130,7 @@ public final class TexturePaletteScanner {
                 int width = Math.max(1, sprite.getIconWidth());
                 int height = Math.max(1, sprite.getIconHeight());
                 if (pixels.length < width * height) {
+                    cache.skippedShortPixels++;
                     cache.variantsSkipped++;
                     continue;
                 }
@@ -119,6 +152,7 @@ public final class TexturePaletteScanner {
                     opaquePixels++;
                 }
                 if (sumAlpha <= 0.0) {
+                    cache.skippedTransparent++;
                     cache.variantsSkipped++;
                     continue;
                 }
@@ -166,11 +200,16 @@ public final class TexturePaletteScanner {
 
         cache.entries = new ArrayList<>(unique.values());
         PixelArtHelper.LOG.info(
-            "Texture palette scan: {} blocks, {} variants, {} unique, {} skipped",
+            "Texture palette scan: {} blocks, {} variants, {} unique, {} skipped (noIcon={}, notSprite={}, noFrames={}, short={}, transparent={})",
             cache.blocksScanned,
             cache.variantsSeen,
             cache.entries.size(),
-            cache.variantsSkipped);
+            cache.variantsSkipped,
+            cache.skippedNoIcon,
+            cache.skippedNotSprite,
+            cache.skippedNoFrames,
+            cache.skippedShortPixels,
+            cache.skippedTransparent);
         return cache;
     }
 

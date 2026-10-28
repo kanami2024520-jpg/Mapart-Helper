@@ -12,5 +12,10 @@ public class PaletteCache {
     public int blocksScanned;
     public int variantsSeen;
     public int variantsSkipped;
+    public int skippedNoIcon;
+    public int skippedNotSprite;
+    public int skippedNoFrames;
+    public int skippedShortPixels;
+    public int skippedTransparent;
     public List<PaletteEntry> entries = new ArrayList<>();
 }
