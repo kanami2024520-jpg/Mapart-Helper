@@ -1,0 +1,23 @@
+{
+  "modListVersion": 2,
+  "modList": [
+    {
+      "modid": "${modId}",
+      "name": "${modName}",
+      "description": "GTNH 1.7.10 vertical pixel-art builder using actual block textures and .schematic export.",
+      "version": "${modVersion}",
+      "mcversion": "${minecraftVersion}",
+      "url": "https://github.com/kanami2024520-jpg/Mapart-Helper",
+      "updateUrl": "",
+      "authorList": ["kanami2024520-jpg", "Redheris (upstream)"],
+      "credits": "Based on Mapart Helper by Redheris; GTNH port.",
+      "logoFile": "",
+      "screenshots": [],
+      "parent": "",
+      "requiredMods": ["gtnhlib", "modularui2"],
+      "dependencies": [],
+      "dependants": [],
+      "useDependencyInformation": true
+    }
+  ]
+}

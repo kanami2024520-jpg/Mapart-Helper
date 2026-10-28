@@ -1,3 +1,12 @@
+# Pixel Art Helper (GTNH 1.7.10 fork)
+
+> This is a **1.7.10 / GTNH-only** fork of [Redheris/Mapart-Helper](https://github.com/Redheris/Mapart-Helper).
+> It is being repurposed into a vertical pixel-art builder that uses **actual block textures**,
+> not map colours. Upstream code is LGPL-3.0; see `LICENSE`.
+>
+> Status: bootstrap milestone. The 1.21/Fabric/Stonecutter build has been removed and replaced
+> with a GTNH RFG 1.7.10 build. All builds run in GitHub Actions.
+
 # <img src="src/main/resources/assets/maparthelper/icon.png" width="96" alt="icon"> Mapart Helper
 
 > If you run into any bugs or rough edges, please report them on the

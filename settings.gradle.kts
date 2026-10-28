@@ -1,27 +1,21 @@
+
 pluginManagement {
     repositories {
-        mavenLocal()
-        mavenCentral()
+        maven {
+            // RetroFuturaGradle
+            name = "GTNH Maven"
+            url = uri("https://nexus.gtnewhorizons.com/repository/public/")
+            mavenContent {
+                includeGroup("com.gtnewhorizons")
+                includeGroupByRegex("com\\.gtnewhorizons\\..+")
+            }
+        }
         gradlePluginPortal()
-        maven("https://maven.fabricmc.net/") { name = "Fabric" }
-        maven("https://maven.kikugie.dev/releases") { name = "KikuGie Releases" }
+        mavenCentral()
+        mavenLocal()
     }
 }
 
 plugins {
-    id("dev.kikugie.stonecutter") version "0.9.7"
-    id("dev.kikugie.loom-back-compat") version "0.4"
+    id("com.gtnewhorizons.gtnhsettingsconvention") version("2.0.33")
 }
-
-stonecutter {
-    create(rootProject) {
-        // See https://stonecutter.kikugie.dev/wiki/start/#choosing-minecraft-versions
-        fun fabric(vararg versions: String) {
-            versions(versions.toList()).buildscript("build.fabric.gradle.kts")
-        }
-        fabric("1.21.8", "1.21.11", "26.1", "26.2", "26.3")
-        vcsVersion = "1.21.8"
-    }
-}
-
-rootProject.name = "Mapart Helper"
