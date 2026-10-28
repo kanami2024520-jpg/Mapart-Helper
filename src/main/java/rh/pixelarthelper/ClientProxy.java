@@ -1,6 +1,7 @@
 package rh.pixelarthelper;
 
 import net.minecraftforge.client.ClientCommandHandler;
+import net.minecraftforge.common.MinecraftForge;
 
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
@@ -12,6 +13,7 @@ public class ClientProxy extends CommonProxy {
     public void preInit(FMLPreInitializationEvent event) {
         super.preInit(event);
         DependencyProbe.verify();
+        MinecraftForge.EVENT_BUS.register(new SelfTest());
     }
 
     @Override
