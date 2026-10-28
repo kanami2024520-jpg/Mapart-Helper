@@ -7,9 +7,9 @@ import java.io.Writer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.init.Blocks;
-import net.minecraftforge.event.world.WorldEvent;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 import rh.pixelarthelper.conversion.PixelArtConverter;
 import rh.pixelarthelper.conversion.PixelArtResult;
 import rh.pixelarthelper.palette.PaletteCache;
@@ -21,17 +21,21 @@ import rh.pixelarthelper.schematic.SchematicWriter;
  * Optional smoke test used while bringing the 1.7.10 port up.
  *
  * <p>
- * Create {@code config/pixelarthelper/selftest.flag} and load a world. The client scans
- * the texture palette, writes a small schematic and shuts down. This is intentionally
- * dormant during normal play.
+ * Create {@code config/pixelarthelper/selftest.flag} and start the client. Once the
+ * block atlas exists the client scans the texture palette, writes a small schematic
+ * and shuts down. This is intentionally dormant during normal play.
  */
 public final class SelfTest {
 
     private static boolean done;
 
     @SubscribeEvent
-    public void onWorldLoad(WorldEvent.Load event) {
-        if (done || event.world == null || !event.world.isRemote) return;
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        if (done || event.phase != TickEvent.Phase.END) return;
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.getTextureMapBlocks() == null) return;
+        if (minecraft.getTextureMapBlocks()
+            .getGlTextureId() <= 0) return;
 
         File flag = new File(PaletteStorage.directory(), "selftest.flag");
         if (!flag.isFile()) return;
@@ -67,8 +71,7 @@ public final class SelfTest {
                 // Nothing else we can do.
             }
         } finally {
-            Minecraft.getMinecraft()
-                .shutdown();
+            minecraft.shutdown();
         }
     }
 }
