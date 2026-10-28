@@ -34,6 +34,13 @@ public final class TexturePaletteScanner {
         PaletteCache cache = new PaletteCache();
         cache.generatedAt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX").format(new Date());
 
+        AtlasSampler atlas = null;
+        try {
+            atlas = AtlasSampler.capture();
+        } catch (Throwable t) {
+            PixelArtHelper.LOG.warn("Could not read the block atlas; falling back to sprite frame data", t);
+        }
+
         Map<String, PaletteEntry> unique = new LinkedHashMap<>();
         Iterator<Block> iterator = GameData.getBlockRegistry()
             .iterator();
@@ -75,18 +82,6 @@ public final class TexturePaletteScanner {
                     cache.variantsSkipped++;
                     continue;
                 }
-                if (!(icon instanceof TextureAtlasSprite)) {
-                    cache.skippedNotSprite++;
-                    cache.variantsSkipped++;
-                    if (meta == 0 && blockName.startsWith("minecraft:") && cache.skippedNotSprite <= 12) {
-                        PixelArtHelper.LOG.info(
-                            "Palette skip {} meta 0: icon class {}",
-                            blockName,
-                            icon.getClass()
-                                .getName());
-                    }
-                    continue;
-                }
 
                 int tint = renderColor(block, meta);
                 String iconName = String.valueOf(icon.getIconName());
@@ -97,84 +92,26 @@ public final class TexturePaletteScanner {
                     continue;
                 }
 
-                TextureAtlasSprite sprite = (TextureAtlasSprite) icon;
-                boolean diag = meta == 0 && (blockName.equals("minecraft:stone") || blockName.equals("minecraft:wool")
-                    || blockName.equals("minecraft:planks")
-                    || blockName.equals("minecraft:stained_hardened_clay"));
-                int[][] frames = null;
-                int[] pixels;
-                try {
-                    frames = sprite.getFrameTextureData(0);
-                    if (diag) {
-                        PixelArtHelper.LOG.info(
-                            "Palette diag {}: sprite={} frames={} width={} height={}",
-                            blockName,
-                            sprite.getClass()
-                                .getName(),
-                            frames == null ? -1 : frames.length,
-                            sprite.getIconWidth(),
-                            sprite.getIconHeight());
-                    }
-                    if (frames == null || frames.length == 0 || frames[0] == null) {
-                        cache.skippedNoFrames++;
-                        cache.variantsSkipped++;
-                        continue;
-                    }
-                    pixels = frames[0];
-                } catch (Throwable t) {
-                    cache.skippedNoFrames++;
+                AtlasSampler.Stats stats = atlas == null ? null : atlas.stats(icon);
+                if (stats == null && icon instanceof TextureAtlasSprite) {
+                    stats = statsFromFrames((TextureAtlasSprite) icon);
+                    if (stats == null) cache.skippedNoFrames++;
+                } else if (stats == null) {
+                    cache.skippedNotSprite++;
+                }
+                if (stats == null) {
                     cache.variantsSkipped++;
                     continue;
                 }
-
-                int width = Math.max(1, sprite.getIconWidth());
-                int height = Math.max(1, sprite.getIconHeight());
-                if (pixels.length < width * height) {
-                    cache.skippedShortPixels++;
-                    cache.variantsSkipped++;
-                    continue;
-                }
-
-                double sumAlpha = 0.0;
-                long sumR = 0, sumG = 0, sumB = 0;
-                int opaquePixels = 0;
-                for (int i = 0; i < width * height; i++) {
-                    int pixel = pixels[i];
-                    int alpha = (pixel >>> 24) & 0xFF;
-                    if (alpha < 8) continue;
-                    int r = (pixel >> 16) & 0xFF;
-                    int g = (pixel >> 8) & 0xFF;
-                    int b = pixel & 0xFF;
-                    sumAlpha += alpha;
-                    sumR += (long) r * alpha;
-                    sumG += (long) g * alpha;
-                    sumB += (long) b * alpha;
-                    opaquePixels++;
-                }
-                if (sumAlpha <= 0.0) {
+                if (stats.alphaCoverage <= 0.0) {
                     cache.skippedTransparent++;
                     cache.variantsSkipped++;
                     continue;
                 }
 
-                double avgR = sumR / sumAlpha;
-                double avgG = sumG / sumAlpha;
-                double avgB = sumB / sumAlpha;
-
-                double varianceSum = 0.0;
-                for (int i = 0; i < width * height; i++) {
-                    int pixel = pixels[i];
-                    int alpha = (pixel >>> 24) & 0xFF;
-                    if (alpha < 8) continue;
-                    double dr = ((pixel >> 16) & 0xFF) - avgR;
-                    double dg = ((pixel >> 8) & 0xFF) - avgG;
-                    double db = (pixel & 0xFF) - avgB;
-                    varianceSum += (dr * dr + dg * dg + db * db) * alpha;
-                }
-
-                int r = applyTint((int) Math.round(avgR), tint, 16);
-                int g = applyTint((int) Math.round(avgG), tint, 8);
-                int b = applyTint((int) Math.round(avgB), tint, 0);
+                int r = applyTint((int) Math.round(stats.avgR), tint, 16);
+                int g = applyTint((int) Math.round(stats.avgG), tint, 8);
+                int b = applyTint((int) Math.round(stats.avgB), tint, 0);
                 int argb = ColorUtil.argb(r, g, b);
 
                 PaletteEntry entry = new PaletteEntry();
@@ -187,8 +124,8 @@ public final class TexturePaletteScanner {
                 entry.tint = tint;
                 entry.argb = argb;
                 entry.lab = ColorUtil.srgbToLab(argb);
-                entry.variance = Math.sqrt(varianceSum / (3.0 * sumAlpha));
-                entry.alphaCoverage = (double) opaquePixels / (double) (width * height);
+                entry.variance = stats.variance;
+                entry.alphaCoverage = stats.alphaCoverage;
                 entry.fullCube = fullCube;
                 entry.hasItem = hasItem;
                 entry.hasTileEntity = hasTileEntity;
@@ -211,6 +148,59 @@ public final class TexturePaletteScanner {
             cache.skippedShortPixels,
             cache.skippedTransparent);
         return cache;
+    }
+
+    private static AtlasSampler.Stats statsFromFrames(TextureAtlasSprite sprite) {
+        int[][] frames;
+        int[] pixels;
+        try {
+            frames = sprite.getFrameTextureData(0);
+            if (frames == null || frames.length == 0 || frames[0] == null) return null;
+            pixels = frames[0];
+        } catch (Throwable t) {
+            return null;
+        }
+
+        int width = Math.max(1, sprite.getIconWidth());
+        int height = Math.max(1, sprite.getIconHeight());
+        if (pixels.length < width * height) return null;
+
+        double sumAlpha = 0.0;
+        long sumR = 0, sumG = 0, sumB = 0;
+        int opaquePixels = 0;
+        for (int i = 0; i < width * height; i++) {
+            int pixel = pixels[i];
+            int alpha = (pixel >>> 24) & 0xFF;
+            if (alpha < 8) continue;
+            sumAlpha += alpha;
+            sumR += (long) ((pixel >> 16) & 0xFF) * alpha;
+            sumG += (long) ((pixel >> 8) & 0xFF) * alpha;
+            sumB += (long) (pixel & 0xFF) * alpha;
+            opaquePixels++;
+        }
+        if (sumAlpha <= 0.0) return null;
+
+        double avgR = sumR / sumAlpha;
+        double avgG = sumG / sumAlpha;
+        double avgB = sumB / sumAlpha;
+        double varianceSum = 0.0;
+        for (int i = 0; i < width * height; i++) {
+            int pixel = pixels[i];
+            int alpha = (pixel >>> 24) & 0xFF;
+            if (alpha < 8) continue;
+            double dr = ((pixel >> 16) & 0xFF) - avgR;
+            double dg = ((pixel >> 8) & 0xFF) - avgG;
+            double db = (pixel & 0xFF) - avgB;
+            varianceSum += (dr * dr + dg * dg + db * db) * alpha;
+        }
+
+        AtlasSampler.Stats stats = new AtlasSampler.Stats();
+        stats.avgR = avgR;
+        stats.avgG = avgG;
+        stats.avgB = avgB;
+        stats.variance = Math.sqrt(varianceSum / (3.0 * sumAlpha));
+        stats.alphaCoverage = (double) opaquePixels / (double) (width * height);
+        return stats;
     }
 
     private static int renderColor(Block block, int meta) {
