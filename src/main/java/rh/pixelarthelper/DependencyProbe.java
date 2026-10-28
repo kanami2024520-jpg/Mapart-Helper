@@ -3,7 +3,8 @@ package rh.pixelarthelper;
 /**
  * Compile-time/runtime presence check for the GTNH libraries this mod builds on.
  *
- * <p>This is intentionally tiny for the bootstrap milestone: it makes CI fail if the
+ * <p>
+ * This is intentionally tiny for the bootstrap milestone: it makes CI fail if the
  * dependency coordinates stop resolving, and makes a dev-client launch fail fast if the
  * libraries are missing.
  */

@@ -21,9 +21,7 @@ public class PixelArtHelper {
     public static final String MOD_NAME = "Pixel Art Helper";
     public static final Logger LOG = LogManager.getLogger(MODID);
 
-    @SidedProxy(
-        clientSide = "rh.pixelarthelper.ClientProxy",
-        serverSide = "rh.pixelarthelper.CommonProxy")
+    @SidedProxy(clientSide = "rh.pixelarthelper.ClientProxy", serverSide = "rh.pixelarthelper.CommonProxy")
     public static CommonProxy proxy;
 
     @Mod.EventHandler
