@@ -71,6 +71,15 @@ public final class TexturePaletteScanner {
                     continue;
                 }
 
+                int tint = renderColor(block, meta);
+                String iconName = String.valueOf(icon.getIconName());
+                String key = iconName + '|' + tint + '|' + face;
+                PaletteEntry duplicate = unique.get(key);
+                if (duplicate != null) {
+                    duplicate.duplicates++;
+                    continue;
+                }
+
                 TextureAtlasSprite sprite = (TextureAtlasSprite) icon;
                 int[][] frames;
                 int[] pixels;
@@ -129,19 +138,10 @@ public final class TexturePaletteScanner {
                     varianceSum += (dr * dr + dg * dg + db * db) * alpha;
                 }
 
-                int tint = renderColor(block, meta);
                 int r = applyTint((int) Math.round(avgR), tint, 16);
                 int g = applyTint((int) Math.round(avgG), tint, 8);
                 int b = applyTint((int) Math.round(avgB), tint, 0);
                 int argb = ColorUtil.argb(r, g, b);
-
-                String iconName = String.valueOf(icon.getIconName());
-                String key = iconName + '|' + tint + '|' + face;
-                PaletteEntry duplicate = unique.get(key);
-                if (duplicate != null) {
-                    duplicate.duplicates++;
-                    continue;
-                }
 
                 PaletteEntry entry = new PaletteEntry();
                 entry.blockId = blockId;
